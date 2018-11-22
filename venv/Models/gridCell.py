@@ -6,11 +6,11 @@
 # Status: consumed, flamable, non-flamable, in-flames
 from enum import Enum
 
-CellValue = Enum('CellValue','CONSUMED FLAMABLE NONFLAMABLE BEINGCONSUMED')
+CellStatus = Enum('CellStatus','CONSUMED FLAMABLE NONFLAMABLE BEINGCONSUMED')
 
 class GridCell:
     def __init__(self, x, y):
-        self.cellValue = CellValue
+        self.CellStatus = CellStatus
         self.x = x
         self.y = y
         self.elevation = 0.00

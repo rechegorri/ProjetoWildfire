@@ -3,3 +3,4 @@ class Wind:
         self.speed = speed
         self.direction = direction
         self.readingTime = readingTime
+

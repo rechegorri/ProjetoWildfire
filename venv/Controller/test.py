@@ -1,10 +1,6 @@
-from Models.gridCell import CellValue
 from Models.gridCell import GridCell
+from Controller.GridMap import GridMap
 
-class main:
-    def __init__(self):
-        cell = Cell(0,0)
-        cell.cellValue = CellValue.FLAMABLE
-        print(cell.cellValue.value)
-
-MyMain = main()
+cg = GridMap(100)
+for cell in cg.grid:
+    print(cell.cellValue)
