@@ -8,6 +8,11 @@ from enum import Enum
 
 CellStatus = Enum('CellStatus','CONSUMED FLAMABLE NONFLAMABLE BEINGCONSUMED')
 
+
+def CellStatusValue(cellstatus: CellStatus):
+    return cellstatus.value
+
+
 class GridCell:
     def __init__(self, x, y):
         self.CellStatus = CellStatus
@@ -15,6 +20,6 @@ class GridCell:
         self.y = y
         self.elevation = 0.00
 
-    
+
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
