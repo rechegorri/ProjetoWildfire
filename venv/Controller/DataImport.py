@@ -19,8 +19,6 @@ INICIO
 '''
 def importacao_dados(arq_estacao, arq_focos):
     print('Inicio da importação: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-    arq_estacao='C:\\Users\Livnick\Documents\dadosFocos\DadosEstacao.2017-07-01.2018-07-01.csv'
-    arq_focos='C:\\Users\Livnick\Documents\dadosFocos\Focos.2017-07-01.2018-07-01.csv'
     estacao_reader = csv.DictReader(open(arq_estacao), delimiter = ';')
     focos_reader = csv.DictReader(open(arq_focos), delimiter = ';')
     estacao_list = []
@@ -42,7 +40,7 @@ def importacao_dados(arq_estacao, arq_focos):
         data_dict['VelocidadeVentoNebulosidade'] =  input['VelocidadeVentoNebulosidade']
         estacao_datetime.append(dt)
         estacao_list.append(data_dict)
-
+    print("Leitura de estações: " + str(len(estacao_list)))
     for input in focos_reader:
         data_dict = {'RiscoFog': input['RiscoFog']}
         '''model 2017/07/03 16:53:00'''
@@ -51,7 +49,7 @@ def importacao_dados(arq_estacao, arq_focos):
         data_dict['Latitude'] = input['Latitude']
         data_dict['Longitude'] = input['Longitud']
         focos_list.append(data_dict)
-
+    print("Registros de satélite: " + str(len(focos_list)))
     estacao_list = sorted(estacao_list, key=itemgetter('Datetime'))
     focos_list = sorted(focos_list, key=itemgetter('Datetime'))
     '''
@@ -59,6 +57,8 @@ def importacao_dados(arq_estacao, arq_focos):
     
     '''
     data_output = []
+    '''Index para consultar ref futura'''
+    i=1
     for element in focos_list:
         ##Busca de datetime anterior mais proximo do foco para vincular os dados de tempo.
         index, leitura_recente_dt = min(enumerate(estacao_datetime),  key=lambda x: abs(x[1]-element['Datetime']))
@@ -74,9 +74,19 @@ def importacao_dados(arq_estacao, arq_focos):
         data_dict['PressaoAtmEstacao'] = estacao_list[index]['PressaoAtmEstacao']
         data_dict['DirecaoVento'] = estacao_list[index]['DirecaoVento']
         data_dict['VelocidadeVentoNebulosidade'] = estacao_list[index]['VelocidadeVentoNebulosidade']
+        try:
+            aux = focos_list[i]
+        except IndexError:
+            results_dict = {'Latitude': '', 'Longitude': '', 'Datetime': ''}
+        else:
+            results_dict = {'Latitude': aux['Latitude'], 'Longitude': aux['Longitude']}
+            if (aux['Datetime'] - data_dict['Datetime'] <= 43200):
+                data_dict['DaterimeProximo'] = aux['Datetime']
+            else:
+                data_dict['DaterimeProximo'] = ''
         data_output.append(data_dict)
-    end = time.time()
     print('Importação de dados concluida: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
+    return data_output
     '''
     FIM
     '''
