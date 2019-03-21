@@ -77,14 +77,18 @@ def importacao_dados(arq_estacao, arq_focos):
         try:
             aux = focos_list[i]
         except IndexError:
-            results_dict = {'Latitude': '', 'Longitude': '', 'Datetime': ''}
+            data_dict['LatitudeProximo'] = ''
+            data_dict['LongitudeProximo'] = ''
+            data_dict['DaterimeProximo'] = ''
         else:
-            results_dict = {'Latitude': aux['Latitude'], 'Longitude': aux['Longitude']}
-            if (aux['Datetime'] - data_dict['Datetime'] <= 43200):
+            data_dict['LatitudeProximo'] = aux['Latitude']
+            data_dict['LongitudeProximo'] = aux['Longitude']
+            if (aux['Datetime'] - data_dict['Datetime'] <= 43200):##43200 = 12 Horas
                 data_dict['DaterimeProximo'] = aux['Datetime']
             else:
-                data_dict['DaterimeProximo'] = ''
+                data_dict['DaterimeProximo'] = 0
         data_output.append(data_dict)
+        i=i+1
     print('Importação de dados concluida: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     return data_output
     '''

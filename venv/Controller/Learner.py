@@ -15,18 +15,23 @@ valor X se trata das entradas de dados para treino
 valor Y são os resultados esperados a partir do dataset de treino
 '''
 
-def neural_network_treiner(X):
+def neural_network_treiner(data_input):
     print('Iniciando treino de dados: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-    scaler = MinMaxScaler()
-    mlpc = neuralnetwork.MLPClassifier(
+    MLPC = neuralnetwork.MLPClassifier(
         hidden_layer_sizes=(10,5), activation='tanh', solver='sgd',
         learning_rate='constant', verbose=True, momentum=0.9,
         nesterovs_momentum=True)
-    x_train,x_test,y_train,y_test = None
-    MLPC.fit(X2_train, Y_train)
+    Y = data_input.loc[:,'LatitudeProximo':'DatetimeProximo']
+    X = data_input.loc[:,'RiscoFogo':'VelocidadeVentoNebulosidade']
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.9)
+    print("X Train: {}".format(x_train))
+    print("X Test: {}".format(x_test))
+    print("Y Train: {}".format(y_train))
+    print("Y Test: {}".format(y_test))
+    #MLPC.fit(x_train, y_train)
     print('Treino de dados concluido: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-    y_pred_MLPC = MLPC.predict_log_proba(X2_test)
-    y_pred_MLPC = pd.DataFrame(y_pred_MLPC[:, 1:2], columns=['MLPC_predictions'])
+    #y_pred_MLPC = MLPC.predict_log_proba(x_test)
+    #y_pred_MLPC = pd.DataFrame(y_pred_MLPC[:, 1:2], columns=['MLPC_predictions'])
     print('Testes realizados'.format(datetime.datetime.now()))
 
 ##Inserção de dados
@@ -34,14 +39,22 @@ def import_data(arq_estacao, arq_focos):
     print('Gerando arquivo: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     trainer_data = di.importacao_dados(arq_estacao_treino, arq_focos_treino)
     data_values = []
-    for element in trainer_data:
-        data_values.append(list(element.values()))
+    #for element in trainer_data:
+    #    data_values.append(list(element.values()))
     labels = ['RiscoFogo', 'Datetime', 'Latitude', 'Longitude', 'TempBulboSeco', 'TempBulboUmido', 'UmidadeRelativa',
               'PressaoAtmEstacao', 'DirecaoVento', 'VelocidadeVentoNebulosidade','LatitudeProximo','LongitudeProximo',
               'DatetimeProximo']
-    dclean_df = pd.DataFrame.from_records(data_values, columns=labels)
+    dclean_df = pd.DataFrame(trainer_data, columns=labels)
     dclean_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", index=False)
     return dclean_df
+
+def prepare_train(csv_data):
+    csv_data = csv_data.fillna(0)
+    data_semzeros = csv_data[csv_data['DatetimeProximo'] > 0]
+    min_max_scaler = MinMaxScaler()
+    data_pronto = pd.DataFrame(min_max_scaler.fit_transform(csv_data.values), columns=csv_data.columns, index=csv_data.index)
+    print(data_pronto.describe())
+    #neural_network_treiner(data_semzeros)
 
 if __name__ == '__main__':
     print('Inicio fluxo: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
@@ -51,13 +64,8 @@ if __name__ == '__main__':
         csv_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", encoding='utf8', index_col='Datetime')
     except FileNotFoundError:
         csv_data = import_data(arq_focos_treino,arq_focos_treino)
-        print("Elementos retirados: " + str(len(csv_data)))
-        print('Valores extraidos: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-        csv_data = csv_data.fillna(0)
-        data_y = csv_data.loc[:, 'LatitudeProximo':'DatetimeProximo']
-        data_x = csv_data.loc[:, 'RiscoFogo':'DirecaoVento']
+        prepare_train(csv_data)
     else:
-        csv_data = csv_data.fillna(0)
-        data_y = csv_data.loc[:,'LatitudeProximo':'DatetimeProximo']
-        data_x = csv_data.loc[:,'RiscoFogo':'DirecaoVento']
-        print(data_x.describe())
+        prepare_train(csv_data)
+
+
