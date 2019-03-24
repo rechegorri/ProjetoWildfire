@@ -58,7 +58,7 @@ def importacao_dados(arq_estacao, arq_focos):
     '''
     data_output = []
     '''Index para consultar ref futura'''
-    i=1
+    i=2
     for element in focos_list:
         ##Busca de datetime anterior mais proximo do foco para vincular os dados de tempo.
         index, leitura_recente_dt = min(enumerate(estacao_datetime),  key=lambda x: abs(x[1]-element['Datetime']))
@@ -84,9 +84,9 @@ def importacao_dados(arq_estacao, arq_focos):
             data_dict['LatitudeProximo'] = aux['Latitude']
             data_dict['LongitudeProximo'] = aux['Longitude']
             if (aux['Datetime'] - data_dict['Datetime'] <= 43200):##43200 = 12 Horas
-                data_dict['DaterimeProximo'] = aux['Datetime']
+                data_dict['DatetimeProximo'] = aux['Datetime']
             else:
-                data_dict['DaterimeProximo'] = 0
+                data_dict['DatetimeProximo'] = 0
         data_output.append(data_dict)
         i=i+1
     print('Importação de dados concluida: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))

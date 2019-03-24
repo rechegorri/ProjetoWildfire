@@ -17,22 +17,23 @@ valor Y são os resultados esperados a partir do dataset de treino
 
 def neural_network_treiner(data_input):
     print('Iniciando treino de dados: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-    MLPC = neuralnetwork.MLPClassifier(
-        hidden_layer_sizes=(10,5), activation='tanh', solver='sgd',
-        learning_rate='constant', verbose=True, momentum=0.9,
-        nesterovs_momentum=True)
+    MLPC = neuralnetwork.MLPRegressor(activation='relu', alpha=1e-05, batch_size='auto', beta_1=0.9,
+           beta_2=0.999, early_stopping=False, epsilon=1e-08,
+           hidden_layer_sizes=(9, 3), learning_rate='constant',
+           learning_rate_init=0.001, max_iter=200, momentum=0.9,
+           nesterovs_momentum=True, power_t=0.5, random_state=9, shuffle=True,
+           solver='lbfgs', tol=0.0001, validation_fraction=0.1, verbose=True,
+           warm_start=False)
     Y = data_input.loc[:,'LatitudeProximo':'DatetimeProximo']
-    X = data_input.loc[:,'RiscoFogo':'VelocidadeVentoNebulosidade']
-    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.9)
-    print("X Train: {}".format(x_train))
-    print("X Test: {}".format(x_test))
-    print("Y Train: {}".format(y_train))
-    print("Y Test: {}".format(y_test))
-    #MLPC.fit(x_train, y_train)
+    X = data_input.loc[:,:'VelocidadeVentoNebulosidade']
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.7)
+    MLPC.fit(x_train, y_train)
     print('Treino de dados concluido: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-    #y_pred_MLPC = MLPC.predict_log_proba(x_test)
-    #y_pred_MLPC = pd.DataFrame(y_pred_MLPC[:, 1:2], columns=['MLPC_predictions'])
-    print('Testes realizados'.format(datetime.datetime.now()))
+    #y_pred_MLPC = MLPC.predict(x_test)
+    #y_score = MLPC.score(x_test, y_test)
+    print("Valor pred: ".format(MLPC.predict(x_test)))
+    print('Media do score: '.format(MLPC.score(x_test, y_test)))
+    print('Testes realizados {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
 
 ##Inserção de dados
 def import_data(arq_estacao, arq_focos):
@@ -44,17 +45,17 @@ def import_data(arq_estacao, arq_focos):
     labels = ['RiscoFogo', 'Datetime', 'Latitude', 'Longitude', 'TempBulboSeco', 'TempBulboUmido', 'UmidadeRelativa',
               'PressaoAtmEstacao', 'DirecaoVento', 'VelocidadeVentoNebulosidade','LatitudeProximo','LongitudeProximo',
               'DatetimeProximo']
-    dclean_df = pd.DataFrame(trainer_data, columns=labels)
+    dclean_df = pd.DataFrame(trainer_data, columns=labels, index='Datetime')
     dclean_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", index=False)
     return dclean_df
 
 def prepare_train(csv_data):
-    csv_data = csv_data.fillna(0)
+    del csv_data['RiscoFogo']#Cerca de 68% dos dados vazios afeta os resultados
     data_semzeros = csv_data[csv_data['DatetimeProximo'] > 0]
     min_max_scaler = MinMaxScaler()
     data_pronto = pd.DataFrame(min_max_scaler.fit_transform(csv_data.values), columns=csv_data.columns, index=csv_data.index)
-    print(data_pronto.describe())
-    #neural_network_treiner(data_semzeros)
+    #print(data_pronto.isna().sum()/data_pronto.shape[0])
+    neural_network_treiner(data_pronto)
 
 if __name__ == '__main__':
     print('Inicio fluxo: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
