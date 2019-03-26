@@ -86,7 +86,7 @@ def importacao_dados(arq_estacao, arq_focos):
             if (aux['Datetime'] - data_dict['Datetime'] <= 43200):##43200 = 12 Horas
                 data_dict['DatetimeProximo'] = aux['Datetime']
             else:
-                data_dict['DatetimeProximo'] = 0
+                data_dict['DatetimeProximo'] = data_dict['Datetime']
         data_output.append(data_dict)
         i=i+1
     print('Importação de dados concluida: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
