@@ -5,6 +5,7 @@ import csv
 import datetime
 import time
 from operator import itemgetter
+import Controller.DistanceMetrics as dm
 
 def run_end_failure():
     print('Erro ao iniciar a leitura: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
@@ -17,6 +18,38 @@ Leituras Estacoes = CSV
 
 INICIO
 '''
+
+def getNeighboursData(input_list):
+    output_list = []
+    for element in input_list:
+        ##Separar registros até 72 posteriores ao ocorrido
+        ##72 hrs = 259200
+        next_element_id = input_list.index(element) + 1
+        try:
+            next_element = input_list[next_element_id]
+        except IndexError:
+            next_element = None
+        neighbours_list = []
+        while (next_element != None and element['Datetime'] - next_element['Datetime'] <= 259200):
+            ##Busca distancia que o vizinho temporal está do ponto em km
+            next_element['DistanciaDoPonto'] = dm.getDistanceBetweenPoints(float(element['Latitude']),
+                                                                           float(element['Longitude']),
+                                                                           float(next_element['Latitude']),
+                                                                           float(next_element['Longitude']))
+            neighbours_list.append(next_element)
+            next_element_id = next_element_id + 1
+            try:
+                next_element = input_list[next_element_id]
+            except IndexError:
+                next_element = None
+        out_neighbours = {'OrigemLatitude':element['Latitude']}
+        out_neighbours['OrigemDotLongitude'] = element['Longitude']
+        out_neighbours['OrigemDatetime'] = element['Datetime']
+        out_neighbours['Vizinhos'] = neighbours_list
+        output_list.append(element)
+    return output_list
+
+
 def importacao_dados(arq_estacao, arq_focos):
     print('Inicio da importação: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     estacao_reader = csv.DictReader(open(arq_estacao), delimiter = ';')
@@ -57,8 +90,7 @@ def importacao_dados(arq_estacao, arq_focos):
     
     '''
     data_output = []
-    '''Index para consultar ref futura'''
-    i=2
+    index=0
     for element in focos_list:
         ##Busca de datetime anterior mais proximo do foco para vincular os dados de tempo.
         index, leitura_recente_dt = min(enumerate(estacao_datetime),  key=lambda x: abs(x[1]-element['Datetime']))
@@ -74,23 +106,9 @@ def importacao_dados(arq_estacao, arq_focos):
         data_dict['PressaoAtmEstacao'] = estacao_list[index]['PressaoAtmEstacao']
         data_dict['DirecaoVento'] = estacao_list[index]['DirecaoVento']
         data_dict['VelocidadeVentoNebulosidade'] = estacao_list[index]['VelocidadeVentoNebulosidade']
-        try:
-            aux = focos_list[i]
-        except IndexError:
-            data_dict['LatitudeProximo'] = ''
-            data_dict['LongitudeProximo'] = ''
-            data_dict['DaterimeProximo'] = ''
-        else:
-            data_dict['LatitudeProximo'] = aux['Latitude']
-            data_dict['LongitudeProximo'] = aux['Longitude']
-            if (aux['Datetime'] - data_dict['Datetime'] <= 43200):##43200 = 12 Horas
-                data_dict['DatetimeProximo'] = aux['Datetime']
-            else:
-                data_dict['DatetimeProximo'] = data_dict['Datetime']
         data_output.append(data_dict)
-        i=i+1
-    print('Importação de dados concluida: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-    return data_output
-    '''
-    FIM
-    '''
+        index = index + 1
+    print('Concatenação de dados: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
+    neighbours_list = getNeighboursData(data_output)
+    print('Processo de importação concluido: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
+    return data_output,output_list
