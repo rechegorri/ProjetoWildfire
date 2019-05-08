@@ -30,7 +30,7 @@ def getNeighboursData(input_list):
             next_element = input_list[next_element_id]
         except IndexError:
             next_element = None
-        while (next_element != None and next_element['Datetime'] - element['Datetime'] <= 86900):##86900=24hrs
+        while (next_element != None and next_element['Datetime'] - element['Datetime'] <= 43450):##86900=24hrs
             ##Busca distancia que o vizinho temporal está do ponto em km
             ##Porem como o valor da velocidade esta em m/s é necessário colocar a variável na mesma unidade
             distancia = dm.getDistanceBetweenPoints(float(element['Latitude']),
@@ -42,18 +42,26 @@ def getNeighboursData(input_list):
                 delta_deslc = distancia/delta_tempo
             except ZeroDivisionError:
                 delta_deslc = -1
+            #Retorna angulo a partir do ponto inicial, que sera usado para comparar com a direção geral do vento naquele instante
+            angulo = dm.getBearingBetweenPoints(float(element['Latitude']),
+                                                                           float(element['Longitude']),
+                                                                           float(next_element['Latitude']),
+                                                                           float(next_element['Longitude']))
+
             if(delta_deslc>0 and delta_deslc<=float(element['VelocidadeVentoNebulosidade'])):
-                neighbour_element = {'OrigemLatitude': element['Latitude']}
-                neighbour_element['OrigemLongitude'] = element['Longitude']
-                neighbour_element['OrigemDatetime'] = element['Datetime']
-                neighbour_element['Latitude'] = next_element['Latitude']
-                neighbour_element['Longitude'] = next_element['Longitude']
-                neighbour_element['Datetime'] = next_element['Datetime']
-                neighbour_element['DistanciaDoPonto'] = dm.getDistanceBetweenPoints(float(element['Latitude']),
-                                                                               float(element['Longitude']),
-                                                                               float(next_element['Latitude']),
-                                                                               float(next_element['Longitude']))
-                neighbours_list.append(neighbour_element)
+                d_angulo =  angulo-dm.getBearingFromInmet(float(element['DirecaoVento']))
+                if(d_angulo<=5 and d_angulo>=-5):
+                    neighbour_element = {'OrigemLatitude': element['Latitude']}
+                    neighbour_element['OrigemLongitude'] = element['Longitude']
+                    neighbour_element['OrigemDatetime'] = element['Datetime']
+                    neighbour_element['Latitude'] = next_element['Latitude']
+                    neighbour_element['Longitude'] = next_element['Longitude']
+                    neighbour_element['Datetime'] = next_element['Datetime']
+                    neighbour_element['DistanciaDoPonto'] = dm.getDistanceBetweenPoints(float(element['Latitude']),
+                                                                                   float(element['Longitude']),
+                                                                                   float(next_element['Latitude']),
+                                                                                   float(next_element['Longitude']))
+                    neighbours_list.append(neighbour_element)
             next_element_id = next_element_id + 1
             try:
                 next_element = input_list[next_element_id]
