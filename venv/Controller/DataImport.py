@@ -6,6 +6,7 @@ import datetime
 import time
 from operator import itemgetter
 import Controller.DistanceMetrics as dm
+import pandas as pd
 
 def run_end_failure():
     print('Erro ao iniciar a leitura: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
@@ -20,7 +21,7 @@ INICIO
 '''
 
 def getNeighboursData(input_list):
-    output_list = []
+    neighbours_list = []
     for element in input_list:
         ##Separar registros até 72 posteriores ao ocorrido
         ##72 hrs = 259200
@@ -29,25 +30,37 @@ def getNeighboursData(input_list):
             next_element = input_list[next_element_id]
         except IndexError:
             next_element = None
-        neighbours_list = []
-        while (next_element != None and element['Datetime'] - next_element['Datetime'] <= 259200):
+        while (next_element != None and next_element['Datetime'] - element['Datetime'] <= 86900):##86900=24hrs
             ##Busca distancia que o vizinho temporal está do ponto em km
-            next_element['DistanciaDoPonto'] = dm.getDistanceBetweenPoints(float(element['Latitude']),
+            ##Porem como o valor da velocidade esta em m/s é necessário colocar a variável na mesma unidade
+            distancia = dm.getDistanceBetweenPoints(float(element['Latitude']),
                                                                            float(element['Longitude']),
                                                                            float(next_element['Latitude']),
-                                                                           float(next_element['Longitude']))
-            neighbours_list.append(next_element)
+                                                                           float(next_element['Longitude']))*1000
+            delta_tempo = int(next_element['Datetime'] - element['Datetime'])
+            try:
+                delta_deslc = distancia/delta_tempo
+            except ZeroDivisionError:
+                delta_deslc = -1
+            if(delta_deslc>0 and delta_deslc<=float(element['VelocidadeVentoNebulosidade'])):
+                neighbour_element = {'OrigemLatitude': element['Latitude']}
+                neighbour_element['OrigemLongitude'] = element['Longitude']
+                neighbour_element['OrigemDatetime'] = element['Datetime']
+                neighbour_element['Latitude'] = next_element['Latitude']
+                neighbour_element['Longitude'] = next_element['Longitude']
+                neighbour_element['Datetime'] = next_element['Datetime']
+                neighbour_element['DistanciaDoPonto'] = dm.getDistanceBetweenPoints(float(element['Latitude']),
+                                                                               float(element['Longitude']),
+                                                                               float(next_element['Latitude']),
+                                                                               float(next_element['Longitude']))
+                neighbours_list.append(neighbour_element)
             next_element_id = next_element_id + 1
             try:
                 next_element = input_list[next_element_id]
             except IndexError:
                 next_element = None
-        out_neighbours = {'OrigemLatitude':element['Latitude']}
-        out_neighbours['OrigemDotLongitude'] = element['Longitude']
-        out_neighbours['OrigemDatetime'] = element['Datetime']
-        out_neighbours['Vizinhos'] = neighbours_list
-        output_list.append(element)
-    return output_list
+    print("Contagem de vizinhos elegíveis: " + str(len(neighbours_list)))
+    return neighbours_list
 
 
 def importacao_dados(arq_estacao, arq_focos):
@@ -111,4 +124,14 @@ def importacao_dados(arq_estacao, arq_focos):
     print('Concatenação de dados: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     neighbours_list = getNeighboursData(data_output)
     print('Processo de importação concluido: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-    return data_output,output_list
+    dclean_labels = ['RiscoFogo', 'Datetime', 'Latitude', 'Longitude', 'TempBulboSeco', 'TempBulboUmido',
+                     'UmidadeRelativa',
+                     'PressaoAtmEstacao', 'DirecaoVento', 'VelocidadeVentoNebulosidade']
+    neighbours_labels = ['OrigemLatitude', 'OrigemLongitude', 'OrigemDatetime', 'Latitude', 'Longitude', 'Datetime',
+                         'DistanciaDoPonto']
+    dclean_df = pd.DataFrame(data_output, columns=dclean_labels)
+    neighbours_df = pd.DataFrame(neighbours_list, columns=neighbours_labels)
+    dclean_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", index=False)
+    neighbours_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosVizinhos.csv", index=False)
+    print('Arquivos Gerados: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
+    return dclean_df, neighbours_df

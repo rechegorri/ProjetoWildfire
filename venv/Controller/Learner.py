@@ -51,14 +51,8 @@ def neural_network_treiner(data_input):
 
 ##Inserção de dados
 def import_data(arq_estacao, arq_focos):
-    trainer_data = di.importacao_dados(arq_estacao_treino, arq_focos_treino)
-    data_values = []
-    labels = ['RiscoFogo', 'Datetime', 'Latitude', 'Longitude', 'TempBulboSeco', 'TempBulboUmido', 'UmidadeRelativa',
-              'PressaoAtmEstacao', 'DirecaoVento', 'VelocidadeVentoNebulosidade']
-    dclean_df = pd.DataFrame(trainer_data, columns=labels)
-    dclean_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", index=False)
-    print('Arquivo Gerado: {:%d-%m-%Y %H:%M:%S}'.format(dt.datetime.now()))
-    return dclean_df
+    focos_df, neighbours_df = di.importacao_dados(arq_estacao_treino, arq_focos_treino)
+    return focos_df, neighbours_df
 
 def tratamento_data(csv_data):
     del csv_data['RiscoFogo']#Cerca de 68% dos dados vazios afeta os resultados
@@ -85,12 +79,13 @@ if __name__ == '__main__':
     arq_focos_treino='C:\\Users\Livnick\Documents\dadosFocos\Focos.2017-07-01.2018-07-01.csv'
     try:
         csv_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", encoding='utf8', index_col=None)
+        neighbours_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosVizinhos.csv", encoding='utf8', index_col=None)
     except FileNotFoundError:
-        csv_data = import_data(arq_focos_treino,arq_focos_treino)
-        print(csv_data)
+        csv_data, neighbours_data = import_data(arq_focos_treino,arq_focos_treino)
+        print(neighbours_data)
         ##tratamento_data(csv_data)
     else:
-        print(csv_data)
+        print(neighbours_data)
         ##tratamento_data(csv_data)
 
 
