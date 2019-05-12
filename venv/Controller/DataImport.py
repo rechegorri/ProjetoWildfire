@@ -30,14 +30,14 @@ def getNeighboursData(input_list):
             next_element = input_list[next_element_id]
         except IndexError:
             next_element = None
-        while (next_element != None and next_element['Datetime'] - element['Datetime'] <= 43450):##86900=24hrs
+        while (next_element != None and next_element['Datetime'] - element['Datetime'] <= 28800):##86900=24hrs
             ##Busca distancia que o vizinho temporal está do ponto em km
             ##Porem como o valor da velocidade esta em m/s é necessário colocar a variável na mesma unidade
             distancia = dm.getDistanceBetweenPoints(float(element['Latitude']),
                                                                            float(element['Longitude']),
                                                                            float(next_element['Latitude']),
                                                                            float(next_element['Longitude']))*1000
-            delta_tempo = int(next_element['Datetime'] - element['Datetime'])
+            delta_tempo = float(next_element['Datetime'] - element['Datetime'])
             try:
                 delta_deslc = distancia/delta_tempo
             except ZeroDivisionError:
@@ -50,14 +50,20 @@ def getNeighboursData(input_list):
 
             if(delta_deslc>0 and delta_deslc<=float(element['VelocidadeVentoNebulosidade'])):
                 d_angulo =  angulo-dm.getBearingFromInmet(float(element['DirecaoVento']))
-                if(d_angulo<=5 and d_angulo>=-5):
+                if(d_angulo<10 and d_angulo>-10):
                     neighbour_element = {'OrigemLatitude': element['Latitude']}
                     neighbour_element['OrigemLongitude'] = element['Longitude']
                     neighbour_element['OrigemDatetime'] = element['Datetime']
-                    neighbour_element['Latitude'] = next_element['Latitude']
-                    neighbour_element['Longitude'] = next_element['Longitude']
-                    neighbour_element['Datetime'] = next_element['Datetime']
-                    neighbour_element['DistanciaDoPonto'] = dm.getDistanceBetweenPoints(float(element['Latitude']),
+                    neighbour_element['OrigemTempBulboSeco'] = element['TempBulboSeco']
+                    neighbour_element['OrigemTempBulboUmido'] = element['TempBulboUmido']
+                    neighbour_element['OrigemUmidadeRelativa'] = element['UmidadeRelativa']
+                    neighbour_element['OrigemPressaoAtmEstacao'] = element['PressaoAtmEstacao']
+                    neighbour_element['OrigemDirecaoVento'] = element['DirecaoVento']
+                    neighbour_element['OrigemVelocidadeVentoNebulosidade'] = element['VelocidadeVentoNebulosidade']
+                    neighbour_element['PontoLatitude'] = next_element['Latitude']
+                    neighbour_element['PontoLongitude'] = next_element['Longitude']
+                    neighbour_element['PontoDatetime'] = next_element['Datetime']
+                    neighbour_element['DistanciaDeOrigem'] = dm.getDistanceBetweenPoints(float(element['Latitude']),
                                                                                    float(element['Longitude']),
                                                                                    float(next_element['Latitude']),
                                                                                    float(next_element['Longitude']))
@@ -135,8 +141,10 @@ def importacao_dados(arq_estacao, arq_focos):
     dclean_labels = ['RiscoFogo', 'Datetime', 'Latitude', 'Longitude', 'TempBulboSeco', 'TempBulboUmido',
                      'UmidadeRelativa',
                      'PressaoAtmEstacao', 'DirecaoVento', 'VelocidadeVentoNebulosidade']
-    neighbours_labels = ['OrigemLatitude', 'OrigemLongitude', 'OrigemDatetime', 'Latitude', 'Longitude', 'Datetime',
-                         'DistanciaDoPonto']
+    neighbours_labels = ['OrigemLatitude', 'OrigemLongitude', 'OrigemDatetime', 'OrigemTempBulboSeco',
+                         'OrigemTempBulboUmido', 'OrigemUmidadeRelativa','OrigemPressaoAtmEstacao',
+                         'OrigemDirecaoVento', 'OrigemVelocidadeVentoNebulosidade', 'PontoLatitude',
+                         'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem']
     dclean_df = pd.DataFrame(data_output, columns=dclean_labels)
     neighbours_df = pd.DataFrame(neighbours_list, columns=neighbours_labels)
     dclean_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", index=False)

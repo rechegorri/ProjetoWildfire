@@ -4,6 +4,7 @@ import sklearn.metrics as metrics
 from sklearn.preprocessing import MinMaxScaler
 import Controller.DataImport as di
 from sklearn.model_selection import train_test_split
+import numpy as np
 import pandas as pd
 #from datetime import datetime
 import datetime as dt
@@ -75,17 +76,39 @@ def tratamento_data(csv_data):
 
 if __name__ == '__main__':
     print('Inicio fluxo: {:%d-%m-%Y %H:%M:%S}'.format(dt.datetime.now()))
-    arq_estacao_treino='C:\\Users\Livnick\Documents\dadosFocos\DadosEstacao.2017-07-01.2018-07-01.csv'
-    arq_focos_treino='C:\\Users\Livnick\Documents\dadosFocos\Focos.2017-07-01.2018-07-01.csv'
+    arq_estacao_treino='C:\\Users\Livnick\Documents\dadosFocos\DadosEstacoesCorumba.csv'
+    arq_focos_treino='C:\\Users\Livnick\Documents\dadosFocos\FocosCorumba.csv'
     try:
         csv_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", encoding='utf8', index_col=None)
         neighbours_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosVizinhos.csv", encoding='utf8', index_col=None)
     except FileNotFoundError:
         csv_data, neighbours_data = import_data(arq_focos_treino,arq_focos_treino)
-        print(neighbours_data)
+        print(len(neighbours_data))
+        print(len(neighbours_data['PontoDatetime'].unique()))
+        print(len(neighbours_data['OrigemDatetime'].unique()))
+        print(neighbours_data.describe())
         ##tratamento_data(csv_data)
     else:
-        print(neighbours_data)
-        ##tratamento_data(csv_data)
-
-
+        neighbours_cleaned = neighbours_data.loc[~(neighbours_data==0).all(axis=1)]
+        neighbours_cleaned = neighbours_cleaned.fillna(0)
+        print(neighbours_cleaned.isna().sum()/neighbours_cleaned.shape[0])
+        if True:
+            X = neighbours_cleaned.drop(['PontoLatitude', 'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem'], axis=1)
+            Y_lat = neighbours_cleaned['PontoLatitude']
+            Y_long = neighbours_cleaned['PontoLongitude']
+            MLPC = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
+                                              beta_2=0.999, early_stopping=False, epsilon=1e-08,
+                                              hidden_layer_sizes=(9, 5), learning_rate='adaptive',
+                                              learning_rate_init=0.5, max_iter=200, momentum=0.9,
+                                              nesterovs_momentum=True, power_t=0.5, random_state=9, shuffle=True,
+                                              solver='lbfgs', tol=0.0001, validation_fraction=0.1, verbose=False,
+                                              warm_start=False)
+            Xlat_train, Xlat_test, Ylat_train, Ylat_test = train_test_split(X, Y_lat, test_size=0.7)
+            Xlong_train, Xlong_test, Ylong_train, Ylong_test = train_test_split(X, Y_long, test_size=0.7)
+            ##TestLat
+            MLPC.fit(Xlat_train,Ylat_train)
+            Ylat_pred = MLPC.predict(Xlat_test)
+            print(np.mean(np.abs((Ylat_test - Ylat_pred) / Ylat_test)) * 100)
+            MLPC.fit(Xlong_train,Ylong_train)
+            Ylong_pred = MLPC.predict(Xlong_test)
+            print(np.mean(np.abs((Ylong_test - Ylong_pred) / Ylong_test)) * 100)
