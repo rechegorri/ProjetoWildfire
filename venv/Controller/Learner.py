@@ -1,6 +1,7 @@
 import sklearn.neural_network as neuralnetwork
 from sklearn.model_selection import cross_val_score
 import sklearn.metrics as metrics
+from sklearn.metrics import r2_score
 from sklearn.preprocessing import MinMaxScaler
 import Controller.DataImport as di
 from sklearn.model_selection import train_test_split
@@ -89,14 +90,31 @@ if __name__ == '__main__':
         print(neighbours_data.describe())
         ##tratamento_data(csv_data)
     else:
-        neighbours_cleaned = neighbours_data.loc[~(neighbours_data==0).all(axis=1)]
-        neighbours_cleaned = neighbours_cleaned.fillna(0)
+        neighbours_labels = ['OrigemLatitude', 'OrigemLongitude', 'OrigemDatetime', 'OrigemTempBulboSeco',
+                             'OrigemTempBulboUmido', 'OrigemUmidadeRelativa', 'OrigemPressaoAtmEstacao',
+                             'OrigemDirecaoVento', 'OrigemVelocidadeVentoNebulosidade', 'PontoLatitude',
+                             'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem']
+        neighbours_cleaned = neighbours_data.fillna(0)
+        neighbours_cleaned = neighbours_cleaned.loc[~(neighbours_data == 0).all(axis=1)]
+
         print(neighbours_cleaned.isna().sum()/neighbours_cleaned.shape[0])
+        print(neighbours_cleaned.describe())
         if True:
-            X = neighbours_cleaned.drop(['PontoLatitude', 'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem'], axis=1)
-            Y_lat = neighbours_cleaned['PontoLatitude']
-            Y_long = neighbours_cleaned['PontoLongitude']
-            MLPC = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
+            min_max_scaler = MinMaxScaler()
+            data = min_max_scaler.fit_transform(neighbours_cleaned)
+            neighbours_norm = pd.DataFrame(data, columns=neighbours_labels)
+            X = neighbours_norm.drop(['PontoLatitude', 'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem'], axis=1)
+            Y_lat = neighbours_norm['PontoLatitude']
+            Y_long = neighbours_norm['PontoLongitude']
+
+            MLPC_lat = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
+                                              beta_2=0.999, early_stopping=False, epsilon=1e-08,
+                                              hidden_layer_sizes=(9, 5), learning_rate='adaptive',
+                                              learning_rate_init=0.5, max_iter=200, momentum=0.9,
+                                              nesterovs_momentum=True, power_t=0.5, random_state=9, shuffle=True,
+                                              solver='lbfgs', tol=0.0001, validation_fraction=0.1, verbose=False,
+                                              warm_start=False)
+            MLPC_long = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
                                               beta_2=0.999, early_stopping=False, epsilon=1e-08,
                                               hidden_layer_sizes=(9, 5), learning_rate='adaptive',
                                               learning_rate_init=0.5, max_iter=200, momentum=0.9,
@@ -106,9 +124,15 @@ if __name__ == '__main__':
             Xlat_train, Xlat_test, Ylat_train, Ylat_test = train_test_split(X, Y_lat, test_size=0.7)
             Xlong_train, Xlong_test, Ylong_train, Ylong_test = train_test_split(X, Y_long, test_size=0.7)
             ##TestLat
-            MLPC.fit(Xlat_train,Ylat_train)
-            Ylat_pred = MLPC.predict(Xlat_test)
-            print(np.mean(np.abs((Ylat_test - Ylat_pred) / Ylat_test)) * 100)
-            MLPC.fit(Xlong_train,Ylong_train)
-            Ylong_pred = MLPC.predict(Xlong_test)
-            print(np.mean(np.abs((Ylong_test - Ylong_pred) / Ylong_test)) * 100)
+            MLPC_lat.fit(Xlat_train,Ylat_train)
+            Ylat_pred = MLPC_lat.predict(Xlat_test)
+            print('Medida Latitude - Entradas normalizadas')
+            print(np.sqrt(metrics.mean_squared_error(Ylat_test, Ylat_pred)))
+            print('Score R^2')
+            print(r2_score(Ylat_test, Ylat_pred))
+            MLPC_long.fit(Xlong_train,Ylong_train)
+            print('Medida Longitude - Entradas normalizadas')
+            Ylong_pred = MLPC_long.predict(Xlong_test)
+            print(np.sqrt(metrics.mean_squared_error(Ylong_test, Ylong_pred)))
+            print('Score R^2')
+            print(r2_score(Ylong_test, Ylong_pred))
