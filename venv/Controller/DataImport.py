@@ -30,7 +30,7 @@ def getNeighboursData(input_list):
             next_element = input_list[next_element_id]
         except IndexError:
             next_element = None
-        while (next_element != None and next_element['Datetime'] - element['Datetime'] <= 28800):##86900=24hrs
+        while (next_element != None and next_element['Datetime'] - element['Datetime'] <= 28800 and next_element['Datetime'] - element['Datetime'] >0):##86900=24hrs
             ##Busca distancia que o vizinho temporal está do ponto em km
             ##Porem como o valor da velocidade esta em m/s é necessário colocar a variável na mesma unidade
             distancia = dm.getDistanceBetweenPoints(float(element['Latitude']),

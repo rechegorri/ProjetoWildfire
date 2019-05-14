@@ -2,78 +2,101 @@ import sklearn.neural_network as neuralnetwork
 from sklearn.model_selection import cross_val_score
 import sklearn.metrics as metrics
 from sklearn.metrics import r2_score
-from sklearn.preprocessing import MinMaxScaler
 import Controller.DataImport as di
+import Controller.Support as sup
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
-#from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler
 import datetime as dt
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import datasets
 import math
+import pickle
 import folium as fl
-'''
-Treino de dados da MLP, 
-valor X se trata das entradas de dados para treino
-valor Y são os resultados esperados a partir do dataset de treino
-'''
-def neural_network_treiner(data_input):
-    print('Iniciando treino de dados: {:%d-%m-%Y %H:%M:%S}'.format(dt.datetime.now()))
-    MLPC = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
-           beta_2=0.999, early_stopping=False, epsilon=1e-08,
-           hidden_layer_sizes=(9, 5), learning_rate='adaptive',
-           learning_rate_init=0.5, max_iter=200, momentum=0.9,
-           nesterovs_momentum=True, power_t=0.5, random_state=9, shuffle=True,
-           solver='lbfgs', tol=0.0001, validation_fraction=0.1, verbose=False,
-           warm_start=False)
-    Y = data_input.loc[:,'LatitudeProximo':'DatetimeProximo']
-    X = data_input.loc[:,:'VelocidadeVentoNebulosidade']
-    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.7)
-    MLPC.fit(x_train, y_train)
-    print('Treino de dados concluido: {:%d-%m-%Y %H:%M:%S}'.format(dt.datetime.now()))
-    print('------------------------------------')
-    print('Erro Medio Absoluto Test DS:')
-    pred = MLPC.predict(x_test)
-    MAE_test_data = (y_test-pred).sum()/y_test.shape[0]
-    #Valor medio normalizado do erro.
-    print(MAE_test_data)
-    print('------------------------------------')
-    print('Erro Medio Absoluto Train DS:')
-    pred2 = MLPC.predict(x_train)
-    MAE_train_data = (y_train-pred2).sum()/y_train.shape[0]
-    print(MAE_train_data)
-    print('------------------------------------')
-    print('R Squared:')
-    score = MLPC.score(x_test, y_test)
-    print(score)
-    print('------------------------------------')
-    print('Testes realizados {:%d-%m-%Y %H:%M:%S}'.format(dt.datetime.now()))
 
+def MLP_trainer(X,Y):
+    MLPR = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
+                                          beta_2=0.999, early_stopping=False, epsilon=1e-08,
+                                          hidden_layer_sizes=(9, 5), learning_rate='adaptive',
+                                          learning_rate_init=0.5, max_iter=200, momentum=0.9,
+                                          nesterovs_momentum=True, power_t=0.5, random_state=9, shuffle=True,
+                                          solver='lbfgs', tol=0.0001, validation_fraction=0.1, verbose=False,
+                                          warm_start=False)
+    return MLPR
+
+def saveNetwork(network, filename):
+    with open(filename, 'wb') as fo:
+        pickle.dump(network, fo)
+
+def loadNetwork(filename):
+    with open(filename,'rb') as fo:
+        mlpr_loaded = pickle.load(fo)
+        return mlpr_loaded
+
+def unNormalize(norm, max, min):
+    return (min+(norm*(max/min)))
+
+def loadDataTrain(data):
+    data = data.fillna(0)
+    data = data.loc[~(data == 0).all(axis=1)]
+    data_teste = data.tail(1000)
+    ##Minimo e Maximo Valores de Lat e Long
+    min_lat = data['OrigemLatitude'].min()
+    max_lat = data['OrigemLatitude'].max()
+    min_lon = data['OrigemLongitude'].min()
+    max_lon = data['OrigemLongitude'].max()
+    ##
+    min_max = MinMaxScaler()
+    values = min_max.fit_transform(data)
+    data_norm = pd.DataFrame(values, columns=data.columns)
+    X = data_norm.drop(['PontoLatitude', 'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem'], axis=1)
+    Y_lat = data_norm['PontoLatitude']
+    Y_long = data_norm['PontoLongitude']
+    mlpr_lat = MLP_trainer(X, Y_lat)
+    mlpr_long = MLP_trainer(X, Y_long)
+    Xlat_train, Xlat_test, Ylat_train, Ylat_test = train_test_split(X, Y_lat, test_size=0.7)
+    Xlon_train, Xlon_test, Ylon_train, Ylon_test = train_test_split(X, Y_long, test_size=0.7)
+    mlpr_lat.fit(Xlat_train, Ylat_train)
+    mlpr_long.fit(Xlon_train, Ylon_train)
+    Ylat_pred = mlpr_lat.predict(Xlat_test)
+    Ylon_pred = mlpr_long.predict(Xlon_test)
+    print('Medida Latitude - Entradas normalizadas')
+    print(np.sqrt(metrics.mean_squared_error(Ylat_test, Ylat_pred)))
+    print('Score R^2')
+    print(r2_score(Ylat_test, Ylat_pred))
+    print('Medida Longitude - Entradas normalizadas')
+    print(np.sqrt(metrics.mean_squared_error(Ylon_test, Ylon_pred)))
+    print('Score R^2')
+    print(r2_score(Ylon_test, Ylon_pred))
+    lat_real = []
+    lon_real = []
+    lat_pred = []
+    lon_pred = []
+
+    for ele in Ylat_test:
+        lat_real.append(unNormalize(ele,max_lat,min_lat))
+    for ele in Ylat_pred:
+        lat_pred.append(unNormalize(ele,max_lat,min_lat))
+    for ele in Ylat_test:
+        lon_real.append(unNormalize(ele,max_lon,min_lon))
+    for ele in Ylat_pred:
+        lon_pred.append(unNormalize(ele,max_lat,min_lon))
+
+    real_df = pd.DataFrame({'Latitude': lat_real,
+                            'Longitude': lon_real,
+                            'Class': 'Real',
+                            'Datetime': Xlat_test['OrigemDatetime']}).sort_values(by='Datetime')
+    pred_df = pd.DataFrame({'Latitude': lat_pred,
+                            'Longitude': lon_pred,
+                            'Class': 'Prediction',
+                            'Datetime': Xlat_test['OrigemDatetime']}).sort_values(by='Datetime')
+    return real_df, pred_df
 ##Inserção de dados
 def import_data(arq_estacao, arq_focos):
     focos_df, neighbours_df = di.importacao_dados(arq_estacao_treino, arq_focos_treino)
     return focos_df, neighbours_df
-
-def tratamento_data(csv_data):
-    del csv_data['RiscoFogo']#Cerca de 68% dos dados vazios afeta os resultados
-    min_lat = csv_data['Latitude'].min()
-    max_lat = csv_data['Latitude'].max()
-    min_long = csv_data['Longitude'].min()
-    max_long = csv_data['Longitude'].max()
-    min_max_scaler = MinMaxScaler()
-    #print(data_semzeros.isna().sum() / data_semzeros.shape[0])
-    data_pronto = pd.DataFrame(min_max_scaler.fit_transform(csv_data.values), columns=csv_data.columns, index=csv_data.index)
-    map = fl.Map(location=[(min_lat+max_lat)/2,(min_long+max_long)/2],
-                     tiles="Stamen Terrain", zoom_start=10)
-    for element in csv_data.tail(50).values:
-        fl.Marker([element[1],element[2]],
-                  popup=dt.datetime.fromtimestamp(int(element[0])).strftime("{%d-%m-%Y %H:%M:%S}'")
-                  ).add_to(map)
-
-    map.save('C:\\Users\Livnick\Documents\dadosFocos\map001.html')
-
 
 if __name__ == '__main__':
     print('Inicio fluxo: {:%d-%m-%Y %H:%M:%S}'.format(dt.datetime.now()))
@@ -84,55 +107,21 @@ if __name__ == '__main__':
         neighbours_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosVizinhos.csv", encoding='utf8', index_col=None)
     except FileNotFoundError:
         csv_data, neighbours_data = import_data(arq_focos_treino,arq_focos_treino)
-        print(len(neighbours_data))
-        print(len(neighbours_data['PontoDatetime'].unique()))
-        print(len(neighbours_data['OrigemDatetime'].unique()))
-        print(neighbours_data.describe())
-        ##tratamento_data(csv_data)
+        loadDataTrain(neighbours_data)
     else:
-        neighbours_labels = ['OrigemLatitude', 'OrigemLongitude', 'OrigemDatetime', 'OrigemTempBulboSeco',
-                             'OrigemTempBulboUmido', 'OrigemUmidadeRelativa', 'OrigemPressaoAtmEstacao',
-                             'OrigemDirecaoVento', 'OrigemVelocidadeVentoNebulosidade', 'PontoLatitude',
-                             'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem']
-        neighbours_cleaned = neighbours_data.fillna(0)
-        neighbours_cleaned = neighbours_cleaned.loc[~(neighbours_data == 0).all(axis=1)]
-
-        print(neighbours_cleaned.isna().sum()/neighbours_cleaned.shape[0])
-        print(neighbours_cleaned.describe())
-        if True:
-            min_max_scaler = MinMaxScaler()
-            data = min_max_scaler.fit_transform(neighbours_cleaned)
-            neighbours_norm = pd.DataFrame(data, columns=neighbours_labels)
-            X = neighbours_norm.drop(['PontoLatitude', 'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem'], axis=1)
-            Y_lat = neighbours_norm['PontoLatitude']
-            Y_long = neighbours_norm['PontoLongitude']
-
-            MLPC_lat = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
-                                              beta_2=0.999, early_stopping=False, epsilon=1e-08,
-                                              hidden_layer_sizes=(9, 5), learning_rate='adaptive',
-                                              learning_rate_init=0.5, max_iter=200, momentum=0.9,
-                                              nesterovs_momentum=True, power_t=0.5, random_state=9, shuffle=True,
-                                              solver='lbfgs', tol=0.0001, validation_fraction=0.1, verbose=False,
-                                              warm_start=False)
-            MLPC_long = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
-                                              beta_2=0.999, early_stopping=False, epsilon=1e-08,
-                                              hidden_layer_sizes=(9, 5), learning_rate='adaptive',
-                                              learning_rate_init=0.5, max_iter=200, momentum=0.9,
-                                              nesterovs_momentum=True, power_t=0.5, random_state=9, shuffle=True,
-                                              solver='lbfgs', tol=0.0001, validation_fraction=0.1, verbose=False,
-                                              warm_start=False)
-            Xlat_train, Xlat_test, Ylat_train, Ylat_test = train_test_split(X, Y_lat, test_size=0.7)
-            Xlong_train, Xlong_test, Ylong_train, Ylong_test = train_test_split(X, Y_long, test_size=0.7)
-            ##TestLat
-            MLPC_lat.fit(Xlat_train,Ylat_train)
-            Ylat_pred = MLPC_lat.predict(Xlat_test)
-            print('Medida Latitude - Entradas normalizadas')
-            print(np.sqrt(metrics.mean_squared_error(Ylat_test, Ylat_pred)))
-            print('Score R^2')
-            print(r2_score(Ylat_test, Ylat_pred))
-            MLPC_long.fit(Xlong_train,Ylong_train)
-            print('Medida Longitude - Entradas normalizadas')
-            Ylong_pred = MLPC_long.predict(Xlong_test)
-            print(np.sqrt(metrics.mean_squared_error(Ylong_test, Ylong_pred)))
-            print('Score R^2')
-            print(r2_score(Ylong_test, Ylong_pred))
+        real_df,pred_df = loadDataTrain(neighbours_data)
+        merged_df = pd.concat([real_df,pred_df]).sort_values(by='Datetime').head(500)
+        cores = {'Real':'red', 'Prediction':'yellow'}
+        '''
+        real_map = fl.Map(location=[(real_df['Latitude'].min() + real_df['Latitude'].max()) / 2,
+                                    (real_df['Longitude'].min() + real_df['Longitude'].max()) / 2],
+                                    tiles="Cartodb dark_matter", zoom_start=10)
+        real_df.head(500).apply(lambda row:fl.CircleMarker(location=[row["Latitude"],row["Longitude"]],radius=7,fill_color=cores[row['Class']]).add_to(real_map),axis=1)
+        real_map.save('C:\\Users\Livnick\Documents\dadosFocos\corumba_real.html')
+        '''
+        results_map = fl.Map(location=[(merged_df['Latitude'].min()+merged_df['Latitude'].max())/2,
+                                       (merged_df['Longitude'].min()+merged_df['Longitude'].max())/2],
+                                        tiles="Cartodb dark_matter", zoom_start=10)
+        merged_df.apply(lambda row: fl.CircleMarker(location=[row["Latitude"], row["Longitude"]], radius=7,
+                                                            fill_color=cores[row['Class']]).add_to(results_map), axis=1)
+        results_map.save('C:\\Users\Livnick\Documents\dadosFocos\corumba_results.html')
