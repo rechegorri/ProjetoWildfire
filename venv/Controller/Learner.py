@@ -15,6 +15,8 @@ from sklearn import datasets
 import math
 import pickle
 import folium as fl
+import Controller.DistanceMetrics as dm
+import time
 
 def MLP_trainer(X,Y):
     MLPR = neuralnetwork.MLPRegressor(activation='logistic', alpha=1e-05, batch_size='auto', beta_1=0.9,
@@ -49,7 +51,7 @@ def loadDataTrain(data):
     max_lon = data['OrigemLongitude'].max()
     ##
     min_max = MinMaxScaler()
-    values = min_max.fit_transform(data)
+    values = min_max.fit_transform(data.values)
     data_norm = pd.DataFrame(values, columns=data.columns)
     X = data_norm.drop(['PontoLatitude', 'PontoLongitude', 'PontoDatetime', 'DistanciaDeOrigem'], axis=1)
     Y_lat = data_norm['PontoLatitude']
@@ -95,33 +97,33 @@ def loadDataTrain(data):
     return real_df, pred_df
 ##Inserção de dados
 def import_data(arq_estacao, arq_focos):
-    focos_df, neighbours_df = di.importacao_dados(arq_estacao_treino, arq_focos_treino)
-    return focos_df, neighbours_df
+    tempo_inicio = time.time()
+    dados_df = di.importacao_dados(arq_estacao_treino, arq_focos_treino)
+    tempo_decorrido = time.time()
+    print('Tempo Decorrido: {:%H:%M:%S}'.format(tempo_decorrido))
+    return dados_df
 
 if __name__ == '__main__':
     print('Inicio fluxo: {:%d-%m-%Y %H:%M:%S}'.format(dt.datetime.now()))
     arq_estacao_treino='C:\\Users\Livnick\Documents\dadosFocos\DadosEstacoesCorumba.csv'
     arq_focos_treino='C:\\Users\Livnick\Documents\dadosFocos\FocosCorumba.csv'
     try:
-        csv_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", encoding='utf8', index_col=None)
-        neighbours_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosVizinhos.csv", encoding='utf8', index_col=None)
+        csv_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosFormatados.csv", encoding='utf8', index_col=None)
+        #neighbours_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosVizinhos.csv", encoding='utf8', index_col=None)
     except FileNotFoundError:
-        csv_data, neighbours_data = import_data(arq_focos_treino,arq_focos_treino)
-        loadDataTrain(neighbours_data)
+        csv_data = import_data(arq_focos_treino,arq_focos_treino)
+        #loadDataTrain(neighbours_data)
     else:
+        print(csv_data.describe())
+        '''
+        Delta Lat = 413.65 km
+        Delta Lon = 320.15 km
         real_df,pred_df = loadDataTrain(neighbours_data)
-        merged_df = pd.concat([real_df,pred_df]).sort_values(by='Datetime').head(500)
+        merged_df = pd.concat([real_df.head(200),pred_df.head(200)]).sort_values(by='Datetime')
         cores = {'Real':'red', 'Prediction':'yellow'}
-        '''
-        real_map = fl.Map(location=[(real_df['Latitude'].min() + real_df['Latitude'].max()) / 2,
-                                    (real_df['Longitude'].min() + real_df['Longitude'].max()) / 2],
-                                    tiles="Cartodb dark_matter", zoom_start=10)
-        real_df.head(500).apply(lambda row:fl.CircleMarker(location=[row["Latitude"],row["Longitude"]],radius=7,fill_color=cores[row['Class']]).add_to(real_map),axis=1)
-        real_map.save('C:\\Users\Livnick\Documents\dadosFocos\corumba_real.html')
-        '''
+
         results_map = fl.Map(location=[(merged_df['Latitude'].min()+merged_df['Latitude'].max())/2,
-                                       (merged_df['Longitude'].min()+merged_df['Longitude'].max())/2],
-                                        tiles="Cartodb dark_matter", zoom_start=10)
-        merged_df.apply(lambda row: fl.CircleMarker(location=[row["Latitude"], row["Longitude"]], radius=7,
-                                                            fill_color=cores[row['Class']]).add_to(results_map), axis=1)
+                                       (merged_df['Longitude'].min()+merged_df['Longitude'].max())/2], zoom_start=10)
+        merged_df.apply(lambda row: fl.Marker(location=[row["Latitude"], row["Longitude"]],popup=fl.Popup(row["Datetime"]),icon=fl.Icon(color=cores[row["Class"]])).add_to(results_map),axis=1)
         results_map.save('C:\\Users\Livnick\Documents\dadosFocos\corumba_results.html')
+        '''
