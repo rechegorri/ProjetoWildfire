@@ -1,5 +1,4 @@
 from glob import glob
-import numpy as np
 import os
 import csv
 import datetime
@@ -20,6 +19,11 @@ Leituras Estacoes = CSV
 INICIO
 '''
 def determinarGridPosicao(list):
+    '''
+    Determina posição de grid para todos os elementos
+    :param list:
+    :return:
+    '''
     seq_lat = [x['Latitude'] for x in list]
     seq_lon = [x['Longitude'] for x in list]
     max_lat = max(seq_lat)
@@ -33,53 +37,48 @@ def determinarGridPosicao(list):
     return list
 
 def getNeighboursData(input_list):
-    #neighbours_list = []
     '''
     A partir de um dado ponto P, determinar a vizinhança de pontos na região (12 horas x velocidade do vento)
     Mapear por vizinhos no tempo, dentro do espaço de 12 horas
-    '''
-    '''
                 Q0 Q1 Q2
                 Q3 DT Q4
                 Q5 Q6 Q7
     '''
-    range_vizinhos = 1  ##Numero de vizinhos a ser procurado
     for element in input_list:
-        vizinhanca = []
         quad0, quad1, quad2, quad3, quad4, quad5, quad6, quad7 = 0, 0, 0, 0, 0, 0, 0, 0
+        next_element_id = input_list.index(element) + 1
         try:
-            next_element = input_list[input_list.index(element)+1]
-        except IndexError:
+            next_element = input_list[next_element_id]
+        except (ValueError, IndexError):
             next_element = None
-        while (next_element != None and next_element['Datetime'] - element['Datetime'] <= 28800 and next_element['Datetime'] - element['Datetime'] >0):##86900=24hrs
-            vizinhanca.append(next_element)
-            next_element_id = input_list.index(next_element)+1
+        while (next_element is not None and next_element['Datetime'] - element['Datetime'] <= 28800 and next_element['Datetime'] > element['Datetime']):##86900=24hrs
             coord_ponto = element['PosicaoGrid']
-            coord_vizin = next_element['PosicaoGrid']
-            if (coord_vizin['y'] - coord_ponto['y'] == -1):
-                if (coord_vizin['x'] - coord_ponto['x'] == 1):
+            coord_next = next_element['PosicaoGrid']
+            if (coord_next['y'] - coord_ponto['y'] == -1):
+                if (coord_next['x'] - coord_ponto['x'] == 1):
                     quad0 = 1
-                if (coord_vizin['x'] - coord_ponto['x'] == 0):
+                if (coord_next['x'] - coord_ponto['x'] == 0):
                     quad1 = 1
-                if (coord_vizin['x'] - coord_ponto['x'] == -1):
+                if (coord_next['x'] - coord_ponto['x'] == -1):
                     quad2 = 1
-            if (coord_vizin['y'] - coord_ponto['y'] == 0):
-                if (coord_vizin['x'] - coord_ponto['x'] == 1):
+            if (coord_next['y'] - coord_ponto['y'] == 0):
+                if (coord_next['x'] - coord_ponto['x'] == 1):
                     quad3 = 1
                 ##0,0 é o ponto em si
-                if (coord_vizin['x'] - coord_ponto['x'] == -1):
+                if (coord_next['x'] - coord_ponto['x'] == -1):
                     quad4 = 1
-            if (coord_vizin['y'] - coord_ponto['y'] == 1):
-                if (coord_vizin['x'] - coord_ponto['x'] == 1):
+            if (coord_next['y'] - coord_ponto['y'] == 1):
+                if (coord_next['x'] - coord_ponto['x'] == 1):
                     quad5 = 1
-                if (coord_vizin['x'] - coord_ponto['x'] == 0):
+                if (coord_next['x'] - coord_ponto['x'] == 0):
                     quad6 = 1
-                if (coord_vizin['x'] - coord_ponto['x'] == -1):
+                if (coord_next['x'] - coord_ponto['x'] == -1):
                     quad7 = 1
+            next_element_id += 1
             try:
                 next_element = input_list[next_element_id]
             except IndexError:
-                next_element = None
+                break
         element['quad0'] = quad0
         element['quad1'] = quad1
         element['quad2'] = quad2
@@ -88,44 +87,6 @@ def getNeighboursData(input_list):
         element['quad5'] = quad5
         element['quad6'] = quad6
         element['quad7'] = quad7
-        '''
-        for vizinho in vizinhanca:
-            coord_ponto = element['PosicaoGrid']
-            coord_vizin = element['PosicaoGrid']
-            
-            if(coord_vizin['y']-coord_ponto['y']==-1):
-                if(coord_vizin['x']-coord_ponto['x']==1):
-                    quad0 = 1
-                if(coord_vizin['x']-coord_ponto['x']==0):
-                    quad1 = 1
-                if(coord_vizin['x']-coord_ponto['x']==-1):
-                    quad2 = 1
-            if (coord_vizin['y'] - coord_ponto['y'] == 0):
-                if (coord_vizin['x'] - coord_ponto['x'] == 1):
-                    quad3 = 1
-                ##0,0 é o ponto em si
-                if (coord_vizin['x'] - coord_ponto['x'] == -1):
-                    quad4 = 1
-            if (coord_vizin['y'] - coord_ponto['y'] == 1):
-                if (coord_vizin['x'] - coord_ponto['x'] == 1):
-                    quad5 = 1
-                if (coord_vizin['x'] - coord_ponto['x'] == 0):
-                    quad6 = 1
-                if (coord_vizin['x'] - coord_ponto['x'] == -1):
-                    quad7 = 1
-        '''
-        '''
-        element['quad0'] = quad0
-        element['quad1'] = quad1
-        element['quad2'] = quad2
-        element['quad3'] = quad3
-        element['quad4'] = quad4
-        element['quad5'] = quad5
-        element['quad6'] = quad6
-        element['quad7'] = quad7
-        '''
-        print("Elemento lido: " + str(input_list.index(element)))
-    return input_list
 
 def importacao_dados(arq_estacao, arq_focos):
     print('Inicio da importação: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
@@ -157,6 +118,9 @@ def importacao_dados(arq_estacao, arq_focos):
         data_dict['Datetime'] = dt
         data_dict['Latitude'] = input['Latitude']
         data_dict['Longitude'] = input['Longitud']
+        data_dict['DiaSemCh'] = input['DiaSemCh']
+        data_dict['Precipit'] = input['Precipit']
+        data_dict['RiscoFog'] = input['RiscoFog']
         focos_list.append(data_dict)
     print("Registros de satélite: " + str(len(focos_list)))
     estacao_list = sorted(estacao_list, key=itemgetter('Datetime'))
@@ -166,7 +130,11 @@ def importacao_dados(arq_estacao, arq_focos):
     '''
     data_output = []
     index=0
+
     for element in focos_list:
+        '''
+        Varre por dados de tempo dentro da ocorrencia do ponto e concatena os mesmos
+        '''
         ##Busca de datetime anterior mais proximo do foco para vincular os dados de tempo.
         index, leitura_recente_dt = min(enumerate(estacao_datetime),  key=lambda x: abs(x[1]-element['Datetime']))
         ##Valores focos incendio
@@ -174,6 +142,9 @@ def importacao_dados(arq_estacao, arq_focos):
         data_dict['Coordenadas'] = {'Latitude':element['Latitude'], 'Longitude': element['Longitude']}
         data_dict['Latitude'] = element['Latitude']
         data_dict['Longitude'] = element['Longitude']
+        data_dict['DiaSemChuva'] = element['DiaSemCh']
+        data_dict['Precipitacao'] = element['Precipit']
+        data_dict['RiscoFogo'] = element['RiscoFog']
         ##valores leituras tempo
         data_dict['TempBulboSeco'] = estacao_list[index]['TempBulboSeco']
         data_dict['TempBulboUmido'] = estacao_list[index]['TempBulboUmido']
@@ -181,18 +152,17 @@ def importacao_dados(arq_estacao, arq_focos):
         data_dict['PressaoAtmEstacao'] = estacao_list[index]['PressaoAtmEstacao']
         data_dict['DirecaoVento'] = estacao_list[index]['DirecaoVento']
         data_dict['VelocidadeVentoNebulosidade'] = estacao_list[index]['VelocidadeVentoNebulosidade']
-        #data_dict['PosicaoGrid'] = dm.coordanadasParaGrid(data_dict['Coordenadas'])
         data_output.append(data_dict)
         index = index + 1
     print('Concatenação de dados: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     data_output = determinarGridPosicao(data_output)
-    output_list = getNeighboursData(data_output)
+    getNeighboursData(data_output)
     print('Processo de mapeamento de vizinhos concluido: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
-    output_labels = ['Datetime', 'Coordenadas', 'TempBulboSeco',
+    output_labels = ['Datetime', 'Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSeco','TempBulboUmido',
                      'UmidadeRelativa', 'PressaoAtmEstacao', 'DirecaoVento', 'VelocidadeVentoNebulosidade',
                       'PosicaoGrid', 'quad0', 'quad1', 'quad2', 'quad3',
                       'quad4', 'quad5', 'quad6', 'quad7']
-    output_df = pd.DataFrame(output_list, columns=output_labels)
+    output_df = pd.DataFrame(data_output, columns=output_labels)
     #dclean_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", index=False)
     output_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosFormatados.csv", index=False)
     print('Arquivo Gerado: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
