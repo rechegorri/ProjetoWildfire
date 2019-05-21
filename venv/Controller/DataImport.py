@@ -157,13 +157,18 @@ def importacao_dados(arq_estacao, arq_focos):
     print('Concatenação de dados: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     data_output = determinarGridPosicao(data_output)
     getNeighboursData(data_output)
+    dados_filtrados = []
+    for element in data_output:
+        if(element['quad0'] + element['quad1'] + element['quad2'] + element['quad3'] +
+        element['quad4'] + element['quad5'] + element['quad6'] + element['quad7']>0):
+            dados_filtrados.append(element)
     print('Processo de mapeamento de vizinhos concluido: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     output_labels = ['Datetime', 'Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSeco','TempBulboUmido',
                      'UmidadeRelativa', 'PressaoAtmEstacao', 'DirecaoVento', 'VelocidadeVentoNebulosidade',
                       'PosicaoGrid', 'quad0', 'quad1', 'quad2', 'quad3',
                       'quad4', 'quad5', 'quad6', 'quad7']
-    output_df = pd.DataFrame(data_output, columns=output_labels)
-    #dclean_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosLimpos.csv", index=False)
+    output_df = pd.DataFrame(dados_filtrados, columns=output_labels)
     output_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosFormatados.csv", index=False)
+    print("Numero de valores com vizinhos: "+str(len(dados_filtrados)))
     print('Arquivo Gerado: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     return output_df
