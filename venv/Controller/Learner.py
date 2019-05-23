@@ -14,6 +14,7 @@ import math
 import pickle
 import folium as fl
 import time
+import Controller.BuscaGridCV as buscaCV
 
 def matriz_confusao(X,Y, mlp):
     if(mlp == None):
@@ -37,23 +38,16 @@ def kfold_classif(X,Y, splits, mlp):
         mlp = neuralnetwork.MLPClassifier(hidden_layer_sizes=(8, 4), activation='logistic', solver='adam',
                                       learning_rate='constant', random_state=2818, max_iter=400,
                                       early_stopping=True)
-    '''
-    if (tipo_metodo=="Classification Report"):
-        x_train, x_test, y_train, y_test = model.train_test_split(X,Y,test_size=0.33)
-        mlp.fit(x_train,y_train)
-        y_pred = mlp.predict(x_test)
-        return(metrics.classification_report(y_test, y_pred))
-    else:
-    '''
-    acuracia = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='accuracy')
-    logloss = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='neg_log_loss')
-    auc = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='roc_auc')
-    return {'Acurácia Média':acuracia.mean(),'Acurácia Desvio': acuracia.std(),
-                'LogLoss Média': logloss.mean(), 'LogLoss Desvio': logloss.std(),
-                'AUC Média': auc.mean(), 'AUC Desvio': auc.std()}
+    acuracia = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='accuracy')#Acertos sobre erros balanceado
+    avg_precision = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='average_precision')#F1 leva em conta Recall e Precisao
+    #recall = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='recall')#True Pos/ (True Pos + False Pos)
+    aoc_score = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='roc_auc')#Area sobre a curva que entre TP e FP, quanto mais positivo melhor
+    return {'Acuracia Media':acuracia.mean(),'Acuracia Desvio': acuracia.std(),
+            'Precisao Media': avg_precision.mean(), 'Precisao Desvio': avg_precision.std(),
+                'AOC Media': aoc_score.mean(), 'AOC Desvio': aoc_score.std()}
 
-def executar_treino(csv_data, tipo_analise):
-    n_iteracoes = 5
+def executar_treino(csv_data):
+    n_iteracoes = 3
     labels = ['Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSeco', 'TempBulboUmido',
               'UmidadeRelativa', 'DirecaoVento', 'VelocidadeVentoNebulosidade', 'quad0', 'quad1', 'quad2', 'quad3',
               'quad4', 'quad5', 'quad6', 'quad7']
@@ -68,20 +62,40 @@ def executar_treino(csv_data, tipo_analise):
         ['Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSeco', 'TempBulboUmido',
          'UmidadeRelativa', 'DirecaoVento', 'VelocidadeVentoNebulosidade']]
     #.values.ravel()
-    mlp = neuralnetwork.MLPClassifier(hidden_layer_sizes=(6, 2), activation='logistic', solver='adam',learning_rate='constant', random_state=2818, max_iter=400,early_stopping=True)
 
-    result1 = kfold_classif(X, scaled_df[['quad0']].values.ravel(),n_iteracoes,None)
-    result2 = kfold_classif(X, scaled_df[['quad1']].values.ravel(),n_iteracoes,None)
-    result3 = kfold_classif(X, scaled_df[['quad2']].values.ravel(),n_iteracoes,None)
-    result4 = kfold_classif(X, scaled_df[['quad3']].values.ravel(),n_iteracoes,None)
-    result5 = kfold_classif(X, scaled_df[['quad4']].values.ravel(),n_iteracoes,None)
-    result6 = kfold_classif(X, scaled_df[['quad5']].values.ravel(),n_iteracoes,None)
-    result7 = kfold_classif(X, scaled_df[['quad6']].values.ravel(),n_iteracoes,None)
-    result8 = kfold_classif(X, scaled_df[['quad6']].values.ravel(),n_iteracoes,None)
-    lst_res = [result1,result2,result3,result4,result5,result6,result7,result8]
+    results_list = []
+    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad0']].values.ravel()))
+    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad1']].values.ravel()))
+    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad2']].values.ravel()))
+    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad3']].values.ravel()))
+    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad4']].values.ravel()))
+    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad5']].values.ravel()))
+    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad6']].values.ravel()))
+    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad7']].values.ravel()))
+
+    res_df = pd.DataFrame(results_list, columns=result1.keys())
+    res_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\ResultadosGridSearchCV.csv", index=True,
+                  index_label='Quadrante')
+    # matriz_confusao(X,Y)
+    '''
+    mlp = neuralnetwork.MLPClassifier(hidden_layer_sizes=(8, 8),
+    activation='logistic', solver='adam',learning_rate='constant',
+    random_state=2818, max_iter=400,early_stopping=True)
+
+    result1 = kfold_classif(X, scaled_df[['quad0']].values.ravel(),n_iteracoes,mlp)
+    result2 = kfold_classif(X, scaled_df[['quad1']].values.ravel(),n_iteracoes,mlp)
+    result3 = kfold_classif(X, scaled_df[['quad2']].values.ravel(),n_iteracoes,mlp)
+    result4 = kfold_classif(X, scaled_df[['quad3']].values.ravel(),n_iteracoes,mlp)
+    result5 = kfold_classif(X, scaled_df[['quad4']].values.ravel(),n_iteracoes,mlp)
+    result6 = kfold_classif(X, scaled_df[['quad5']].values.ravel(),n_iteracoes,mlp)
+    result7 = kfold_classif(X, scaled_df[['quad6']].values.ravel(),n_iteracoes,mlp)
+    result8 = kfold_classif(X, scaled_df[['quad7']].values.ravel(),n_iteracoes,mlp)
+    lst_res = [result1, result2, result3, result4, result5, result6, result7, result8]
+        #,result2,result3,result4]
     res_df = pd.DataFrame(lst_res,columns=result1.keys())
     res_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\Resultados8RedesIguais.csv", index=True, index_label='Quadrante')
     # matriz_confusao(X,Y)
+    '''
 
 def saveNetwork(network, filename):
     with open(filename, 'wb') as fo:
@@ -112,6 +126,6 @@ if __name__ == '__main__':
     except FileNotFoundError:
         #Acurácia, LogLoss, AUC
         csv_data = import_data(arq_estacao_importar,arq_focos_importar)
-        executar_treino(csv_data, 'Acurácia')
+        executar_treino(csv_data)
     else:
-        executar_treino(csv_data, 'LogLoss')
+        executar_treino(csv_data)
