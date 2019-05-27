@@ -48,11 +48,10 @@ def coordanadasParaGrid(coordenadas, min_lat, max_lat, min_lon, max_lon):
     :param min_lon:
     :param max_lon:
     :return: grid referente a latitude e longitude do ponto.
-    (126 x 100 - aprox. quadrado de 3,28km de lado)
     '''
     x = (float(coordenadas['Latitude']) - float(min_lat))/ (float(max_lat) - float(min_lat))
-    grid_x = int(x*126)#413.54 km entre min e max
+    grid_x = int(x*48)
     y = (float(coordenadas['Longitude']) - float(min_lon))/ (float(max_lon) - float(min_lon))
-    grid_y = int(y*100)#320.15 km entre min e max
+    grid_y = int(y*38)
     return {'x':grid_x,
             'y':grid_y}

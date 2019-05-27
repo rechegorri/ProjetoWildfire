@@ -4,7 +4,7 @@ import sklearn.metrics as metrics
 import Controller.DataImport as di
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, MultiLabelBinarizer
 import datetime as dt
 import matplotlib.pyplot as plt
 from sklearn import datasets
@@ -16,19 +16,23 @@ import folium as fl
 import time
 import Controller.BuscaGridCV as buscaCV
 
-def matriz_confusao(X,Y, mlp):
-    if(mlp == None):
-        mlp = neuralnetwork.MLPClassifier(hidden_layer_sizes=(10, 8), activation='identity', solver='adam',
-                                      learning_rate='constant', random_state=2818, max_iter=400,
-                                      early_stopping=True)
-    x_train, x_test, y_train, y_test = model.train_test_split(X,Y,test_size=0.3, random_state=42)
-    mlp.fit(x_train,y_train)
-    y_pred = mlp.predict(x_test)
-    matrix = metrics.confusion_matrix(y_test.values.argmax(axis=1),y_pred.argmax(axis=1))
-    df_matrix = pd.DataFrame(matrix, columns=Y.columns.values)
-    sns.set(font_scale=1.4)
-    sns.heatmap(df_matrix, annot=True)
-    plt.show()
+def matriz_confusao(Y_true,Y_pred):
+    labels = ['Quad0','Quad1','Quad2','Quad3','Quad4','Quad5','Quad6','Quad7']
+    conf_mat_dict = {}
+    for label_col in range(len(labels)):
+        y_true_lbl = Y_true[:,label_col]
+        y_pred_lbl = Y_pred[:,label_col]
+        conf_mat_dict[labels[label_col]] = metrics.confusion_matrix(y_pred=y_pred_lbl,y_true=y_true_lbl)
+    return conf_mat_dict
+    #for label, matrix in conf_mat_dict.items():
+        #sns.set()
+        #ax = sns.heatmap(matrix)
+        #plt.show(ax)
+        #print("Matrix de confusão para {}:".format(label))
+        #print(matrix)
+    #sns.set(font_scale=1.4)
+    #sns.heatmap(data=)
+    #plt.show()
 
 
 def kfold_classif(X,Y, splits, mlp):
@@ -39,63 +43,56 @@ def kfold_classif(X,Y, splits, mlp):
                                       learning_rate='constant', random_state=2818, max_iter=400,
                                       early_stopping=True)
     acuracia = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='accuracy')#Acertos sobre erros balanceado
-    avg_precision = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='average_precision')#F1 leva em conta Recall e Precisao
-    #recall = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='recall')#True Pos/ (True Pos + False Pos)
-    aoc_score = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='roc_auc')#Area sobre a curva que entre TP e FP, quanto mais positivo melhor
+    avg_precision = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='average_precision')
+    #coverage_error = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='coverage_error')#True Pos/ (True Pos + False Pos)
+    #aoc_score = model.cross_val_score(mlp, X, Y, cv=kfold, scoring='roc_auc')#Area sobre a curva que entre TP e FP, quanto mais positivo melhor
     return {'Acuracia Media':acuracia.mean(),'Acuracia Desvio': acuracia.std(),
-            'Precisao Media': avg_precision.mean(), 'Precisao Desvio': avg_precision.std(),
-                'AOC Media': aoc_score.mean(), 'AOC Desvio': aoc_score.std()}
+            'Precisao Media': avg_precision.mean(), 'Precisao Desvio': avg_precision.std()
+            }
+
+def treino_binarizacao(X,Y):
+    labels = ['Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSecoEst1','TempBulboUmidoEst1',
+                     'UmidadeRelativaEst1', 'DirecaoVentoEst1', 'VelocidadeVentoNebulosidadeEst1','DistanciaParaEst1',
+                     'TempBulboSecoEst2', 'TempBulboUmidoEst2','UmidadeRelativaEst2', 'DirecaoVentoEst2',
+                     'VelocidadeVentoNebulosidadeEst2', 'DistanciaParaEst2']
+    mlb = MultiLabelBinarizer()
+    Ybin = mlb.fit_transform(Y)
+    mlp = neuralnetwork.MLPClassifier(hidden_layer_sizes=(10,4), activation='tanh', solver='lbfgs',
+    learning_rate='invscaling', random_state=2818, max_iter=400,early_stopping=True)
+    x_train,x_test,y_train,y_test = model.train_test_split(X,Ybin,train_size=0.33)
+    mlp.fit(x_train,y_train)
+    y_pred = mlp.predict(x_test)
+    print("Erro de cobertura:"+str(metrics.coverage_error(y_test,y_pred)))
+    print("Precisão média de labels:"+str(metrics.label_ranking_average_precision_score(y_test,y_pred)))
+    print("Perda de ranks:"+str(metrics.label_ranking_loss(y_test,y_pred)))
+    matriz = matriz_confusao(y_test, y_pred)
+    results = {
+        "Erro de cobertura": metrics.coverage_error(y_test,y_pred),
+        "Precisão média de labels": metrics.label_ranking_average_precision_score(y_test,y_pred),
+        "Perda de ranks":metrics.label_ranking_loss(y_test,y_pred),
+        "Matrizes": matriz
+    }
+    res_df = pd.DataFrame(results)
+    res_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\ResultadosMAcomMatriz.csv")
 
 def executar_treino(csv_data):
     n_iteracoes = 3
-    labels = ['Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSeco', 'TempBulboUmido',
-              'UmidadeRelativa', 'DirecaoVento', 'VelocidadeVentoNebulosidade', 'quad0', 'quad1', 'quad2', 'quad3',
-              'quad4', 'quad5', 'quad6', 'quad7']
+    labels = ['Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSecoEst1','TempBulboUmidoEst1',
+                     'UmidadeRelativaEst1', 'DirecaoVentoEst1', 'VelocidadeVentoNebulosidadeEst1','DistanciaParaEst1',
+                     'TempBulboSecoEst2', 'TempBulboUmidoEst2','UmidadeRelativaEst2', 'DirecaoVentoEst2',
+                     'VelocidadeVentoNebulosidadeEst2', 'DistanciaParaEst2']
     ##Drop coluna com valores Zerados e remove NAN (representam menos de 1% da base)
-    csv_data.drop(labels=['Datetime', 'PressaoAtmEstacao', 'PosicaoGrid'], axis=1, inplace=True)
-    csv_data = csv_data.dropna(axis=0)
+    csv_data.drop(labels=['Datetime', 'PosicaoGrid'], axis=1, inplace=True)
+    csv_data = csv_data.fillna(0)
+    X = csv_data[labels]
+    Y = csv_data['Vizinhos']
     scaler = MinMaxScaler()
-    scaler.fit(csv_data)
-    data_scaled = scaler.transform(csv_data)
-    scaled_df = pd.DataFrame(data_scaled, columns=labels)
-    X = scaled_df[
-        ['Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSeco', 'TempBulboUmido',
-         'UmidadeRelativa', 'DirecaoVento', 'VelocidadeVentoNebulosidade']]
+    X_scaled = pd.DataFrame(data=scaler.fit_transform(X), columns=labels)
+    #results_df = pd.DataFrame(buscaCV.rodarGridCV(X_scaled,Y))
+    #results_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\ResultadosGridCV.csv")
+    treino_binarizacao(X_scaled,Y)
     #.values.ravel()
 
-    results_list = []
-    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad0']].values.ravel()))
-    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad1']].values.ravel()))
-    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad2']].values.ravel()))
-    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad3']].values.ravel()))
-    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad4']].values.ravel()))
-    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad5']].values.ravel()))
-    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad6']].values.ravel()))
-    results_list.append(buscaCV.rodarGridCV(X, scaled_df[['quad7']].values.ravel()))
-
-    res_df = pd.DataFrame(results_list, columns=result1.keys())
-    res_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\ResultadosGridSearchCV.csv", index=True,
-                  index_label='Quadrante')
-    # matriz_confusao(X,Y)
-    '''
-    mlp = neuralnetwork.MLPClassifier(hidden_layer_sizes=(8, 8),
-    activation='logistic', solver='adam',learning_rate='constant',
-    random_state=2818, max_iter=400,early_stopping=True)
-
-    result1 = kfold_classif(X, scaled_df[['quad0']].values.ravel(),n_iteracoes,mlp)
-    result2 = kfold_classif(X, scaled_df[['quad1']].values.ravel(),n_iteracoes,mlp)
-    result3 = kfold_classif(X, scaled_df[['quad2']].values.ravel(),n_iteracoes,mlp)
-    result4 = kfold_classif(X, scaled_df[['quad3']].values.ravel(),n_iteracoes,mlp)
-    result5 = kfold_classif(X, scaled_df[['quad4']].values.ravel(),n_iteracoes,mlp)
-    result6 = kfold_classif(X, scaled_df[['quad5']].values.ravel(),n_iteracoes,mlp)
-    result7 = kfold_classif(X, scaled_df[['quad6']].values.ravel(),n_iteracoes,mlp)
-    result8 = kfold_classif(X, scaled_df[['quad7']].values.ravel(),n_iteracoes,mlp)
-    lst_res = [result1, result2, result3, result4, result5, result6, result7, result8]
-        #,result2,result3,result4]
-    res_df = pd.DataFrame(lst_res,columns=result1.keys())
-    res_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\Resultados8RedesIguais.csv", index=True, index_label='Quadrante')
-    # matriz_confusao(X,Y)
-    '''
 
 def saveNetwork(network, filename):
     with open(filename, 'wb') as fo:
@@ -110,22 +107,24 @@ def unNormalize(norm, max, min):
     return (min+(norm*(max/min)))
 
 ##Inserção de dados
-def import_data(arq_estacao, arq_focos):
+def import_data(arq_estacao0, arq_estacao1, arq_focos):
     tempo_inicio = time.time()
-    dados_df = di.importacao_dados(arq_estacao, arq_focos)
+    dados_df = di.importacao_dados(arq_estacao0, arq_estacao1, arq_focos)
     tempo_decorrido = time.time() - tempo_inicio
     print('Tempo Decorrido: '+str(dt.timedelta(seconds=tempo_decorrido)))
     return dados_df
 
 if __name__ == '__main__':
     print('Inicio fluxo: {:%d-%m-%Y %H:%M:%S}'.format(dt.datetime.now()))
-    arq_estacao_importar='C:\\Users\Livnick\Documents\dadosFocos\DadosEstacoesCorumba.csv'
-    arq_focos_importar='C:\\Users\Livnick\Documents\dadosFocos\FocosCorumba.csv'
+    arq_estacao0_importar='C:\\Users\Livnick\Documents\dadosFocos\DadosEstacaoBarraDoCordaMA.csv'
+    arq_estacao1_importar='C:\\Users\Livnick\Documents\dadosFocos\DadosEstacaoImperatrizMA.csv'
+    arq_focos_importar='C:\\Users\Livnick\Documents\dadosFocos\FocosGrajauMA.csv'
     try:
         csv_data = pd.read_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosFormatados.csv", encoding='utf8', index_col=None)
     except FileNotFoundError:
         #Acurácia, LogLoss, AUC
-        csv_data = import_data(arq_estacao_importar,arq_focos_importar)
-        executar_treino(csv_data)
+        csv_data = import_data(arq_estacao0_importar, arq_estacao1_importar,arq_focos_importar)
+        #executar_treino(csv_data)
     else:
-        executar_treino(csv_data)
+        print(metrics.SCORERS.keys())
+        #executar_treino(csv_data)
