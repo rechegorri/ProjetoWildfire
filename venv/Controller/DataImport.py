@@ -48,7 +48,9 @@ def determinarGridPosicao(list):
     for element in list:
         coordenadas_or = {'Latitude': element['Latitude'],
                           'Longitude': element['Longitude']}
-        element['PosicaoGrid'] = dm.coordanadasParaGrid(coordenadas_or, min_lat, max_lat, min_lon, max_lon)
+        coord = dm.coordanadasParaGrid(coordenadas_or, min_lat, max_lat, min_lon, max_lon)
+        element['PosicaoGrid_x'] = coord['x']
+        element['PosicaoGrid_y'] = coord['y']
     return list
 
 def importClimaData(estacao_reader, estacao_datetime):
@@ -82,50 +84,68 @@ def getNeighboursData(input_list):
                 Q5 Q6 Q7
     '''
     for element in input_list:
+        quad0,quad1,quad2,quad3,quad4,quad5,quad6,quad7 = 0,0,0,0,0,0,0,0
         next_element_id = input_list.index(element) + 1
-        neighbours_lst = []
+        #neighbours_lst = []
         try:
             next_element = input_list[next_element_id]
         except (ValueError, IndexError):
             next_element = None
         while (next_element is not None and next_element['Datetime'] - element['Datetime'] <= 43450 and next_element['Datetime'] > element['Datetime']):##86900=24hrs
-            coord_ponto = element['PosicaoGrid']
-            coord_next = next_element['PosicaoGrid']
-            if (coord_next['y'] - coord_ponto['y'] == -1):
-                if (coord_next['x'] - coord_ponto['x'] == 1):
-                    if 'quad0' not in neighbours_lst:
-                        neighbours_lst.append('quad0')
-                if (coord_next['x'] - coord_ponto['x'] == 0):
-                    if 'quad1' not in neighbours_lst:
-                        neighbours_lst.append('quad1')
-                if (coord_next['x'] - coord_ponto['x'] == -1):
-                    if 'quad2' not in neighbours_lst:
-                        neighbours_lst.append('quad2')
-            if (coord_next['y'] - coord_ponto['y'] == 0):
-                if (coord_next['x'] - coord_ponto['x'] == 1):
-                    if 'quad3' not in neighbours_lst:
-                        neighbours_lst.append('quad3')
+            coord_ponto_x = element['PosicaoGrid_x']
+            coord_ponto_y = element['PosicaoGrid_y']
+            coord_next_x = next_element['PosicaoGrid_x']
+            coord_next_y = next_element['PosicaoGrid_y']
+            if (coord_next_y - coord_ponto_y == -1):
+                if (coord_next_x - coord_ponto_x == 1):
+                    #if 'quad0' not in neighbours_lst:
+                    #    neighbours_lst.append('quad0')
+                    quad0 = 1
+                if (coord_next_x - coord_ponto_x == 0):
+                    #if 'quad1' not in neighbours_lst:
+                    #    neighbours_lst.append('quad1')
+                    quad1 = 1
+                if (coord_next_x - coord_ponto_x == -1):
+                    #if 'quad2' not in neighbours_lst:
+                    #    neighbours_lst.append('quad2')
+                    quad2 = 1
+            if (coord_next_y - coord_ponto_y == 0):
+                if (coord_next_x - coord_ponto_x == 1):
+                    #if 'quad3' not in neighbours_lst:
+                    #    neighbours_lst.append('quad3')
+                    quad3 = 1
                 ##0,0 é o ponto em si
-                if (coord_next['x'] - coord_ponto['x'] == -1):
-                    if 'quad4' not in neighbours_lst:
-                        neighbours_lst.append('quad4')
-            if (coord_next['y'] - coord_ponto['y'] == 1):
-                if (coord_next['x'] - coord_ponto['x'] == 1):
-                    if 'quad5' not in neighbours_lst:
-                        neighbours_lst.append('quad5')
-                if (coord_next['x'] - coord_ponto['x'] == 0):
-                    if 'quad6' not in neighbours_lst:
-                        neighbours_lst.append('quad6')
-                if (coord_next['x'] - coord_ponto['x'] == -1):
-                    if 'quad7' not in neighbours_lst:
-                        neighbours_lst.append('quad7')
+                if (coord_next_x - coord_ponto_x == -1):
+                    #if 'quad4' not in neighbours_lst:
+                    #    neighbours_lst.append('quad4')
+                    quad4 = 1
+            if (coord_next_y - coord_ponto_y == 1):
+                if (coord_next_x - coord_ponto_x == 1):
+                    #if 'quad5' not in neighbours_lst:
+                    #    neighbours_lst.append('quad5')
+                    quad5 = 1
+                if (coord_next_x - coord_ponto_x == 0):
+                    #if 'quad6' not in neighbours_lst:
+                    #    neighbours_lst.append('quad6')
+                    quad6 = 1
+                if (coord_next_x - coord_ponto_x == -1):
+                    #if 'quad7' not in neighbours_lst:
+                    #    neighbours_lst.append('quad7')
+                    quad7 = 1
             next_element_id += 1
             try:
                 next_element = input_list[next_element_id]
             except IndexError:
                 break
-        element['Vizinhos'] = neighbours_lst
-
+        #element['Vizinhos'] = neighbours_lst
+        element['Quad0'] = quad0
+        element['Quad1'] = quad1
+        element['Quad2'] = quad2
+        element['Quad3'] = quad3
+        element['Quad4'] = quad4
+        element['Quad5'] = quad5
+        element['Quad6'] = quad6
+        element['Quad7'] = quad7
 
 def importacao_dados(arq_estacao_82571, arq_estacao_82564, arq_focos):
     print('Inicio da importação: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
@@ -205,14 +225,14 @@ def importacao_dados(arq_estacao_82571, arq_estacao_82564, arq_focos):
     getNeighboursData(data_output)
     dados_filtrados = []
     for element in data_output:
-        if(len(element['Vizinhos'])>0):
+        if(element['Quad0']+element['Quad1']+element['Quad2']+element['Quad3']+element['Quad4']+element['Quad5']+element['Quad6']+element['Quad7']>0):
             dados_filtrados.append(element)
     print('Processo de mapeamento de vizinhos concluido: {:%d-%m-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     output_labels = ['Datetime', 'Latitude', 'Longitude', 'DiaSemChuva', 'Precipitacao', 'RiscoFogo', 'TempBulboSecoEst1','TempBulboUmidoEst1',
                      'UmidadeRelativaEst1', 'DirecaoVentoEst1', 'VelocidadeVentoNebulosidadeEst1','DistanciaParaEst1',
                      'TempBulboSecoEst2', 'TempBulboUmidoEst2','UmidadeRelativaEst2', 'DirecaoVentoEst2',
                      'VelocidadeVentoNebulosidadeEst2', 'DistanciaParaEst2',
-                      'PosicaoGrid', 'Vizinhos']
+                      'PosicaoGrid_x', 'PosicaoGrid_y', 'Quad0', 'Quad1', 'Quad2', 'Quad3', 'Quad4', 'Quad5', 'Quad6', 'Quad7']
     output_df = pd.DataFrame(dados_filtrados, columns=output_labels)
     output_df.to_csv("C:\\Users\Livnick\Documents\dadosFocos\DadosFormatados.csv", index=False)
     print("Numero de valores com vizinhos: "+str(len(dados_filtrados)))
